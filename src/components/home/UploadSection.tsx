@@ -8,7 +8,6 @@ import { Upload, Video } from 'lucide-react-native';
 
 interface Props {
     onUpload: () => void;
-
 }
 
 const UploadSection: React.FC<Props> = ({ onUpload }) => (
@@ -27,8 +26,6 @@ const UploadSection: React.FC<Props> = ({ onUpload }) => (
                 <Text style={styles.actionLabel}>Upload Video</Text>
                 <Text style={styles.actionSub}>From Camera Roll</Text>
             </TouchableOpacity>
-
-
         </View>
     </View>
 );

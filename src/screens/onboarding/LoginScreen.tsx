@@ -27,11 +27,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { Colors } from '../../theme/colors';
-
-// expo-web-browser: Opens Google OAuth in an in-app secure browser (ASWebAuthenticationSession on iOS)
-import * as WebBrowser from 'expo-web-browser';
-// QueryParams: Official Supabase-recommended way to parse tokens from OAuth redirect URLs
-import * as QueryParams from 'expo-auth-session/build/QueryParams';
+import { signInWithGoogle } from '../../services/supabase/googleAuth';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
@@ -108,65 +104,12 @@ export default function LoginScreen({ navigation }: Props) {
     async function handleGoogleSignIn() {
         try {
             setLoading(true);
-
-            // Use the app's scheme directly from app.json (sparring://google-auth)
-            // This works because ASWebAuthenticationSession on iOS intercepts 
-            // redirects by scheme, regardless of whether it's registered system-wide.
-            // The 'sparring://**' entry in Supabase redirect URLs will match this.
-            const redirectUrl = 'sparring://google-auth';
-            const { data, error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: redirectUrl,
-                    skipBrowserRedirect: true,
-                    queryParams: {
-                        prompt: 'select_account',
-                    },
-                },
-            });
-
-            if (error) throw error;
-
-            if (data?.url) {
-                // Open the secure browser to authenticate
-                const result = await WebBrowser.openAuthSessionAsync(
-                    data.url,
-                    redirectUrl,
-                    { showInRecents: true },
-                );
-
-                if (result.type === 'success') {
-                    const { url } = result;
-                    await createSessionFromUrl(url);
-                }
-            }
+            await signInWithGoogle();
         } catch (error: any) {
             Alert.alert('Google Sign-In Error', error?.message || 'An unexpected error occurred.');
         } finally {
             setLoading(false);
         }
-    }
-
-    // Helper: Extract tokens from the redirect URL and create a Supabase session
-    async function createSessionFromUrl(url: string) {
-        const { params, errorCode } = QueryParams.getQueryParams(url);
-
-        if (errorCode) {
-            throw new Error(errorCode);
-        }
-
-        const { access_token, refresh_token } = params;
-
-
-        if (!access_token) return;
-
-        const { error: sessionError } = await supabase.auth.setSession({
-            access_token,
-            refresh_token,
-        });
-
-        if (sessionError) throw sessionError;
-        // The onAuthStateChange effect will catch the new session and redirect to Main!
     }
 
     return (
