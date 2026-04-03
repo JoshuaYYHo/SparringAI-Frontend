@@ -8,7 +8,6 @@ import {
     StyleSheet,
     TouchableOpacity,
     Animated,
-    SafeAreaView,
     StatusBar,
     Dimensions,
     Share,
@@ -17,6 +16,7 @@ import {
     NativeSyntheticEvent,
     PanResponder,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';

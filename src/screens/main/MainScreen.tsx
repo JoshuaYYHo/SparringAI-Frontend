@@ -1,22 +1,14 @@
-// src/screens/main/MainScreen.tsx
-//
-// The home screen of the app. Displays the user's sparring sessions
-// in a filterable list with an upload section at the top.
-//
-// Pull-to-refresh: Uses React Native's built-in RefreshControl on the
-// FlatList, which plays a mascot wiggle animation during the refresh.
-
-import React, { useRef, useState, useMemo, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
     View,
     Text,
     FlatList,
     StyleSheet,
     Alert,
-    SafeAreaView,
     StatusBar,
     TouchableOpacity,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, SparringSession } from '../../types';
 import { Colors } from '../../theme/colors';
@@ -41,28 +33,10 @@ const MainScreen: React.FC<Props> = ({ navigation }) => {
         incrementDailyUpload,
     } = useApp();
 
-    // ── Filter state ───────────────────────────────────────────────────
-    const [isRecentPillActive, setIsRecentPillActive] = useState(true);
-    const [isCountPillActive, setIsCountPillActive] = useState(true);
+    // @TODO connect to the supabase to get this user and their sessions
+    // grab the current user session and then load up their sessions
 
-    // Derive the filtered + sorted session list from the raw sessions
-    const filteredSessions = useMemo(() => {
-        let result = [...sessions];
-
-        // Sort by most recent first
-        if (isRecentPillActive) {
-            result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        }
-
-        // Limit to 5 results
-        if (isCountPillActive) {
-            result = result.slice(0, 5);
-        }
-
-        return result;
-    }, [sessions, isRecentPillActive, isCountPillActive]);
-
-    // ── Navigation callbacks ───────────────────────────────────────────
+    // Navigation Callbacks
     const handleUploadAttempt = useCallback(() => {
         if (!canUploadToday()) {
             setUpgradePromptVisible(true);
@@ -85,7 +59,7 @@ const MainScreen: React.FC<Props> = ({ navigation }) => {
 
     const isPremium = user?.plan === 'premium';
 
-    // ── Pull-Down Mascot Animation ─────────────────────────────────────
+    // Pull-Down Mascot Animation
     const { scrollY, spinValue, handleScroll } = usePullToRefreshMascot();
 
     // ── Render ────
@@ -116,7 +90,7 @@ const MainScreen: React.FC<Props> = ({ navigation }) => {
             {/* Session list — bounces={true} enables iOS overscroll which
                 drives the mascot animation via onScroll */}
             <FlatList
-                data={filteredSessions}
+                data={sessions}
                 keyExtractor={item => item.id}
                 style={styles.scroll}
                 contentContainerStyle={styles.scrollContent}
@@ -143,8 +117,8 @@ const MainScreen: React.FC<Props> = ({ navigation }) => {
                 )}
                 ListEmptyComponent={
                     <View style={styles.emptyWrapper}>
-                        <Text style={styles.emptyText}>No sessions found.</Text>
-                        <Text style={styles.emptySubText}>{sessions.length > 0 ? "Try adjusting your filters above." : "Upload your first sparring session above!"}</Text>
+                        <Text style={styles.emptyText}>No sessions yet.</Text>
+                        <Text style={styles.emptySubText}>Upload your first sparring session above!</Text>
                     </View>
                 }
             />
@@ -212,17 +186,6 @@ const styles = StyleSheet.create({
     scrollContent: {
         paddingBottom: 20,
     },
-    // Mascot overlay positioned absolutely between header and list.
-    // zIndex: 10 keeps it above the FlatList content.
-    mascotOverlay: {
-        position: 'absolute',
-        top: 100,
-        left: 0,
-        right: 0,
-        alignItems: 'center',
-        zIndex: 10,
-        pointerEvents: 'none',
-    },
     sectionHeader: {
         paddingHorizontal: 20,
         paddingTop: 28,
@@ -233,40 +196,6 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: '700',
         marginBottom: 2,
-    },
-    sectionSub: {
-        color: Colors.text.muted,
-        fontSize: 13,
-    },
-    filterWrapper: {
-        marginBottom: 16,
-    },
-    pillsRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginHorizontal: 20,
-        gap: 6,
-    },
-    pill: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: Colors.dark.card,
-        borderRadius: 12,
-        paddingLeft: 8,
-        paddingRight: 6,
-        paddingVertical: 4,
-        borderWidth: 1,
-        borderColor: Colors.dark.border,
-    },
-    pillText: {
-        color: Colors.text.primary,
-        fontSize: 12,
-        fontWeight: '500',
-        marginRight: 4,
-    },
-    pillClose: {
-        alignItems: 'center',
-        justifyContent: 'center',
     },
     emptyWrapper: {
         alignItems: 'center',
