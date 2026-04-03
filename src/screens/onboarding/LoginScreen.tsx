@@ -9,7 +9,7 @@
 //   2. OR user taps "Continue with Google" → handleGoogleSignIn()
 //   3. On success, supabase.auth.onAuthStateChange fires → navigates to Main
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     StyleSheet,
     View,
@@ -28,38 +28,20 @@ import { RootStackParamList } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { Colors } from '../../theme/colors';
 import { signInWithGoogle } from '../../services/supabase/googleAuth';
+import { useSessionGuard } from '../../services/supabase/useSessionGuard';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
 export default function LoginScreen({ navigation }: Props) {
+
+    // Variables
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
-
-    // Toggle between Sign In and Sign Up modes
     const [isSignUp, setIsSignUp] = useState(false);
 
-    // ── Auth State Listener ────────────────────────────────────────────
-    // Supabase fires onAuthStateChange whenever the user signs in or out.
-    // When a successful sign-in occurs (from email/password OR Google OAuth),
-    // the 'SIGNED_IN' event fires and we navigate to the Main screen.
-    // We also check 'INITIAL_SESSION' in case a session was restored from storage.
-
-    // Skip this screen too if there is a session
-    useEffect(() => {
-        const { data: authListener } = supabase.auth.onAuthStateChange(
-            (event, session) => {
-                if (session && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
-                    // Replace (not push) so the user can't swipe back to Login
-                    navigation.replace('Main');
-                }
-            }
-        );
-        // Cleanup: unsubscribe when LoginScreen unmounts
-        return () => {
-            authListener?.subscription.unsubscribe();
-        };
-    }, []);
+    // Skip this screen if there is already a session in place
+    useSessionGuard(() => navigation.replace('Main'));
 
     // Entry Point for Email/Password Authentication
     async function handleAuthentication() {
@@ -105,6 +87,7 @@ export default function LoginScreen({ navigation }: Props) {
         try {
             setLoading(true);
             await signInWithGoogle();
+
         } catch (error: any) {
             Alert.alert('Google Sign-In Error', error?.message || 'An unexpected error occurred.');
         } finally {

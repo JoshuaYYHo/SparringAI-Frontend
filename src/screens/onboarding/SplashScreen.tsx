@@ -6,7 +6,7 @@
 //   → If no:  play the intro animation, then show a "Get Started" button
 //             that navigates to the Login screen.
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -22,13 +22,13 @@ import { RootStackParamList } from '../../types';
 import { Colors } from '../../theme/colors';
 import { APP_NAME, APP_CAPTION } from '../../constants';
 import { ChevronRight } from 'lucide-react-native';
-import { supabase } from '../../lib/supabase';
+import { useSessionGuard } from '../../services/supabase/useSessionGuard';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Splash'>;
 
 const SplashScreen: React.FC<Props> = ({ navigation }) => {
-    // Track whether we're still checking for an existing session
-    const [checkingSession, setCheckingSession] = useState(true);
+    // Check for an existing session — navigates to Main if found
+    const { checkingSession } = useSessionGuard(() => navigation.replace('Main'));
 
     // ── Animation values ───────────────────────────────────────────────
     const logoOpacity = useRef(new Animated.Value(0)).current;
@@ -36,27 +36,6 @@ const SplashScreen: React.FC<Props> = ({ navigation }) => {
     const captionOpacity = useRef(new Animated.Value(0)).current;
     const captionY = useRef(new Animated.Value(20)).current;
     const btnOpacity = useRef(new Animated.Value(0)).current;
-
-    // If the user already has a session
-    useEffect(() => {
-        async function checkExistingSession() {
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                // If they already logged in
-                if (session) {
-                    navigation.replace('Main');
-                    return;
-                }
-            } catch (error) {
-                console.warn('Session check failed:', error);
-            }
-
-            // No active session found — show the splash animation
-            setCheckingSession(false);
-        }
-
-        checkExistingSession();
-    }, []);
 
     // ── Splash Animation ───────────────────────────────────────────────
     // If there is no current session
