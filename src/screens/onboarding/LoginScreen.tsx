@@ -43,6 +43,7 @@ export default function LoginScreen({ navigation }: Props) {
     // Skip this screen if there is already a session in place
     useSessionGuard(() => navigation.replace('Main'));
 
+    // @TODO refactor this, I don't think this actually works
     // Entry Point for Email/Password Authentication
     async function handleAuthentication() {
         if (!email || !password) {

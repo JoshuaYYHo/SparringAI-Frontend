@@ -16,12 +16,7 @@ import {
     SafeAreaView,
     StatusBar,
     TouchableOpacity,
-    Animated,
-    TextInput,
-    NativeSyntheticEvent,
-    NativeScrollEvent,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList, SparringSession } from '../../types';
 import { Colors } from '../../theme/colors';
@@ -30,7 +25,7 @@ import SessionListItem from '../../components/home/SessionListItem';
 import UploadSection from '../../components/home/UploadSection';
 import Footer from '../../components/navigation/Footer';
 import UpgradeModal from '../../components/common/UpgradeModal';
-import { Crown, HandMetal, X } from 'lucide-react-native';
+import { Crown } from 'lucide-react-native';
 import { usePullToRefreshMascot, PullToRefreshMascot } from '../../components/common/PullToRefreshMascot';
 import { APP_NAME } from '../../constants';
 
