@@ -41,6 +41,8 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 const INFO_BAR_H = 160;
 const VIDEO_H = SCREEN_H - INFO_BAR_H;
 
+// Have a Prop here probably for these Mock stats
+
 const MOCK_STATS = [
     { label: 'Punch volumes and types thrown', you: '142 (Mix)', opp: '98 (Heavy)' },
     { label: 'Punch accuracy', you: '68%', opp: '45%' },

@@ -21,6 +21,7 @@ import { Colors } from '../../theme/colors';
 import Button from '../../components/common/Button';
 import { useApp } from '../../context/AppContext';
 import { ChevronLeft, Image as ImageIcon, Crosshair, RotateCcw } from 'lucide-react-native';
+import { uploadVideo } from '../../services/supabase/mainFunctions';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Upload'>;
 
@@ -32,6 +33,10 @@ interface DrawnCircle {
     y: number;
     radius: number;
 }
+
+// Services
+
+
 
 const UploadScreen: React.FC<Props> = ({ navigation }) => {
     const { addSession } = useApp();
