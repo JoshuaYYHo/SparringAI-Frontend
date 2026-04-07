@@ -1,5 +1,5 @@
 // src/screens/upload/UploadScreen.tsx
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
     View,
     Text,
@@ -7,68 +7,27 @@ import {
     TouchableOpacity,
     StatusBar,
     Dimensions,
-    PanResponder,
-    GestureResponderEvent,
     Alert,
-    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
-import Svg, { Circle } from 'react-native-svg';
 import { RootStackParamList, SparringSession } from '../../types';
 import { Colors } from '../../theme/colors';
 import Button from '../../components/common/Button';
 import { useApp } from '../../context/AppContext';
-import { ChevronLeft, Image as ImageIcon, Crosshair, RotateCcw } from 'lucide-react-native';
-import { uploadVideo } from '../../services/supabase/mainFunctions';
+import { ChevronLeft, Image as ImageIcon } from 'lucide-react-native';
+import { uploadVideo } from '../../services/backend/mainFunctions';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Upload'>;
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const VIDEO_H = (SCREEN_W * 9) / 16; // 16:9 aspect ratio
 
-interface DrawnCircle {
-    x: number;
-    y: number;
-    radius: number;
-}
-
-// Services
-
-
-
 const UploadScreen: React.FC<Props> = ({ navigation }) => {
     const { addSession } = useApp();
     const [videoUri, setVideoUri] = useState<string | null>(null);
-    const [circle, setCircle] = useState<DrawnCircle | null>(null);
     const [isSaving, setIsSaving] = useState(false);
-
-    // Pan responder for drawing
-    const startPoint = useRef<{ x: number; y: number } | null>(null);
-
-    const panResponder = useRef(
-        PanResponder.create({
-            onStartShouldSetPanResponder: () => !!videoUri, // only draw if video is picked
-            onPanResponderGrant: (evt: GestureResponderEvent) => {
-                const { locationX, locationY } = evt.nativeEvent;
-                startPoint.current = { x: locationX, y: locationY };
-            },
-            onPanResponderMove: (evt: GestureResponderEvent) => {
-                if (!startPoint.current) return;
-                const { locationX, locationY } = evt.nativeEvent;
-                const dx = locationX - startPoint.current.x;
-                const dy = locationY - startPoint.current.y;
-                const radius = Math.sqrt(dx * dx + dy * dy) / 2;
-                const cx = startPoint.current.x + dx / 2;
-                const cy = startPoint.current.y + dy / 2;
-                setCircle({ x: cx, y: cy, radius: Math.max(radius, 10) });
-            },
-            onPanResponderRelease: () => {
-                startPoint.current = null;
-            },
-        })
-    ).current;
 
     const handlePickVideo = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -79,52 +38,49 @@ const UploadScreen: React.FC<Props> = ({ navigation }) => {
 
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['videos'],
-            allowsEditing: true, // often helps to trim the video natively
+            allowsEditing: true, 
             quality: 1,
         });
 
         if (!result.canceled && result.assets && result.assets.length > 0) {
             setVideoUri(result.assets[0].uri);
-            setCircle(null); // Reset circle for new video
         }
     };
 
-    const handleSaveSession = () => {
+    const handleUploadVideo = async () => {
         if (!videoUri) {
             Alert.alert('No Video', 'Please select a video from your camera roll first.');
             return;
         }
 
-        if (!circle) {
-            Alert.alert('Identify Yourself', 'Please drag on the video to draw a circle around yourself before continuing.');
-            return;
-        }
-
         setIsSaving(true);
-
-        // Simulate upload & AI analysis delay
-        setTimeout(() => {
+        try {
+            // Send straight to the backend Render server and save to Supabase
+            const videoRecord = await uploadVideo(videoUri);
+            
+            // Map the new Record to the App's SparringSession type
             const newSession: SparringSession = {
-                id: Date.now().toString(),
-                title: 'New Session',
-                date: new Date().toISOString(),
-                videoUri,
-                score: Math.floor(Math.random() * 30) + 70, // random score 70-100
-                userCircle: circle,
-                analysisText: 'AI Analysis complete: Fighter demonstrated excellent footwork early on but dropped the lead hand when throwing the cross. Recommended to maintain a tighter guard and practice lateral movement.',
+                id: videoRecord.video_id,
+                title: videoRecord.title || 'Sparring Session',
+                date: videoRecord.created_at || new Date().toISOString(),
+                videoUri: videoRecord.video_bucket_url,
+                score: 85, // Adjust this later to extract from AI analysis natively
+                analysisText: videoRecord.ai_analysis,
                 bulletPoints: [
-                    'Keep hands up during combinations',
-                    'Work on lateral defensive movements',
-                    'Snap the jab faster to disrupt rhythm'
+                    'Review AI analysis text for more detailed feedback.',
+                    'Stance and defense metrics are saved to the database.'
                 ]
             };
 
             addSession(newSession);
-            setIsSaving(false);
-
-            // Navigate directly to the new session's detail screen, replacing the current modal
             navigation.replace('SessionDetail', { session: newSession });
-        }, 1500);
+            
+        } catch (error: any) {
+            console.error("Upload process error", error);
+            Alert.alert('Upload Failed', error.message || 'An error occurred during upload.');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
@@ -156,35 +112,12 @@ const UploadScreen: React.FC<Props> = ({ navigation }) => {
                     </View>
                 ) : (
                     <View style={styles.videoContainer}>
-                        <Text style={styles.stepTitle}>Identify Yourself</Text>
-                        <Text style={styles.stepSub}>Drag a circle around yourself in the frame below so our AI knows who to analyze.</Text>
+                        <Text style={styles.stepTitle}>Ready for Analysis</Text>
+                        <Text style={styles.stepSub}>Your video is selected. It will be sent to the Sparring AI engine for detailed processing.</Text>
 
                         <View style={styles.videoWrapper}>
-                            <View style={styles.videoPlaceholder} {...panResponder.panHandlers}>
-                                <Text style={styles.placeholderText}>Video Preview</Text>
-
-                                {!circle && (
-                                    <Text style={styles.drawHint}>Drag here to circle yourself</Text>
-                                )}
-
-                                <Svg
-                                    style={StyleSheet.absoluteFillObject}
-                                    width={SCREEN_W}
-                                    height={VIDEO_H}
-                                    pointerEvents="none"
-                                >
-                                    {circle && (
-                                        <Circle
-                                            cx={circle.x}
-                                            cy={circle.y}
-                                            r={circle.radius}
-                                            stroke={Colors.primary.default}
-                                            strokeWidth={3}
-                                            fill="rgba(255,0,0,0.12)"
-                                            strokeDasharray="8 4"
-                                        />
-                                    )}
-                                </Svg>
+                            <View style={styles.videoPlaceholder}>
+                                <Text style={styles.placeholderText}>Video Ready: {videoUri.split('/').pop()}</Text>
                             </View>
 
                             <View style={styles.toolbar}>
@@ -192,22 +125,15 @@ const UploadScreen: React.FC<Props> = ({ navigation }) => {
                                     <ImageIcon size={16} color={Colors.text.secondary} />
                                     <Text style={styles.toolLabel}>Change Video</Text>
                                 </TouchableOpacity>
-
-                                {circle && (
-                                    <TouchableOpacity style={styles.toolBtn} onPress={() => setCircle(null)} activeOpacity={0.8}>
-                                        <RotateCcw size={14} color={Colors.text.secondary} />
-                                        <Text style={styles.toolLabel}>Clear Circle</Text>
-                                    </TouchableOpacity>
-                                )}
                             </View>
                         </View>
 
                         <View style={styles.saveContainer}>
                             <Button
-                                label={isSaving ? "Processing..." : "Continue to Analysis"}
-                                onPress={handleSaveSession}
+                                label={isSaving ? "Analyzing..." : "Analyze with AI"}
+                                onPress={handleUploadVideo}
                                 loading={isSaving}
-                                disabled={!circle || isSaving}
+                                disabled={isSaving}
                                 fullWidth
                             />
                         </View>
@@ -303,14 +229,6 @@ const styles = StyleSheet.create({
     placeholderText: {
         color: Colors.text.muted,
         fontSize: 14,
-    },
-    drawHint: {
-        color: Colors.primary.light,
-        fontSize: 14,
-        fontWeight: '600',
-        position: 'absolute',
-        bottom: 14,
-        alignSelf: 'center',
     },
     toolbar: {
         flexDirection: 'row',
