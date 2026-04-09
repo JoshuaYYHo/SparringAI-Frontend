@@ -19,6 +19,7 @@ import Button from '../../components/common/Button';
 import { useApp } from '../../context/AppContext';
 import { ChevronLeft, Image as ImageIcon } from 'lucide-react-native';
 import { uploadVideo } from '../../services/backend/mainFunctions';
+import { useVideoPlayer, VideoView } from 'expo-video';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Upload'>;
 
@@ -41,6 +42,12 @@ const UploadScreen: React.FC<Props> = ({ navigation }) => {
             useNativeDriver: false,
         }).start();
     }, [uploadProgress]);
+
+    const player = useVideoPlayer(videoUri, (p) => {
+        p.loop = true;
+        p.muted = true;
+        p.play();
+    });
 
     const handlePickVideo = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -134,9 +141,12 @@ const UploadScreen: React.FC<Props> = ({ navigation }) => {
                         <Text style={styles.stepSub}>Your video is selected. It will be sent to the Sparring AI engine for detailed processing.</Text>
 
                         <View style={styles.videoWrapper}>
-                            <View style={styles.videoPlaceholder}>
-                                <Text style={styles.placeholderText}>Video Ready: {videoUri.split('/').pop()}</Text>
-                            </View>
+                            <VideoView
+                                player={player}
+                                style={styles.videoPreview}
+                                contentFit="cover"
+                                nativeControls={false}
+                            />
 
                             <View style={styles.toolbar}>
                                 <TouchableOpacity style={styles.toolBtn} onPress={handlePickVideo} activeOpacity={0.8}>
@@ -258,17 +268,10 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderColor: Colors.dark.border,
     },
-    videoPlaceholder: {
+    videoPreview: {
         width: SCREEN_W,
         height: VIDEO_H,
         backgroundColor: '#0D0D0D',
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'relative',
-    },
-    placeholderText: {
-        color: Colors.text.muted,
-        fontSize: 14,
     },
     toolbar: {
         flexDirection: 'row',
