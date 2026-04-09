@@ -4,7 +4,12 @@ import { Platform } from 'react-native';
 const BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL || "https://sparringai-backend.onrender.com";
 const SPARRING_API_KEY = process.env.EXPO_PUBLIC_SPARRING_API_KEY;
 
-export async function uploadVideo(videoUri: string) {
+export type UploadProgressCallback = (progress: number, stage: string) => void;
+
+export async function uploadVideo(
+    videoUri: string,
+    onProgress?: UploadProgressCallback
+) {
     try {
         // 1. Ensure the user is authenticated
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -29,29 +34,50 @@ export async function uploadVideo(videoUri: string) {
         formData.append('video', fileObj);
 
         console.log(`Sending video to backend for AI analysis: ${BACKEND_URL}/video_upload`);
+        onProgress?.(5, 'Uploading video...');
 
-        // 3. Send video to Render backend
-        const response = await fetch(`${BACKEND_URL}/video_upload?confidence_threshold=0.7`, {
-            method: 'POST',
-            headers: {
-                // The backend requires the API key for access
-                'x-api-key': SPARRING_API_KEY || '',
-                'Accept': 'application/json',
-                // Note: Content-Type is intentionally omitted so fetch sets the boundary for FormData
-            },
-            body: formData,
+        // 3. Send video to Render backend using XMLHttpRequest for progress tracking
+        const data: any = await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+
+            xhr.upload.addEventListener('progress', (event) => {
+                if (event.lengthComputable) {
+                    // Upload phase is 5-55% of total progress
+                    const uploadPercent = event.loaded / event.total;
+                    const progress = 5 + uploadPercent * 50;
+                    onProgress?.(Math.round(progress), 'Uploading video...');
+                }
+            });
+
+            xhr.addEventListener('load', () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        resolve(JSON.parse(xhr.responseText));
+                    } catch {
+                        reject(new Error('Invalid JSON response from backend'));
+                    }
+                } else {
+                    reject(new Error(`Backend analysis failed: ${xhr.status} - ${xhr.responseText}`));
+                }
+            });
+
+            xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
+            xhr.addEventListener('timeout', () => reject(new Error('Upload timed out')));
+
+            xhr.open('POST', `${BACKEND_URL}/video_upload?confidence_threshold=0.7`);
+            xhr.setRequestHeader('x-api-key', SPARRING_API_KEY || '');
+            xhr.setRequestHeader('Accept', 'application/json');
+            // Timeout: 10 minutes for large videos + AI processing
+            xhr.timeout = 600000;
+            xhr.send(formData);
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Backend analysis failed: ${response.status} - ${errorText}`);
-        }
-
-        const data = await response.json();
+        onProgress?.(55, 'AI is analyzing your video...');
         const raw_analysis = data.raw_analysis || {};
         const ai_commentary = data.ai_commentary || "No commentary returned";
 
         console.log("Analysis complete. Uploading to Supabase Storage...");
+        onProgress?.(70, 'Saving video to cloud...');
 
         // 4. Upload video to Supabase Storage
         const storagePath = `${userId}/${Date.now()}_${filename}`;
@@ -79,6 +105,7 @@ export async function uploadVideo(videoUri: string) {
         const publicUrl = `${supabaseUrl}/storage/v1/object/public/Videos/${storagePath}`;
 
         console.log(`Video uploaded to: ${publicUrl}`);
+        onProgress?.(85, 'Creating session record...');
 
         // 5. Insert record into Video table
         const postgrestUrl = `${supabaseUrl}/rest/v1/Video`;
@@ -112,6 +139,7 @@ export async function uploadVideo(videoUri: string) {
             throw new Error("Failed to return the inserted database record.");
         }
 
+        onProgress?.(100, 'Done!');
         console.log("Upload pipeline completely finished!");
         return videoRecord;
 

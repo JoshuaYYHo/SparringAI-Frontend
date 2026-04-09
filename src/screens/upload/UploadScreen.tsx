@@ -1,5 +1,5 @@
 // src/screens/upload/UploadScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     View,
     Text,
@@ -8,8 +8,9 @@ import {
     StatusBar,
     Dimensions,
     Alert,
+    Animated,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
 import { RootStackParamList, SparringSession } from '../../types';
@@ -25,9 +26,21 @@ const { width: SCREEN_W } = Dimensions.get('window');
 const VIDEO_H = (SCREEN_W * 9) / 16; // 16:9 aspect ratio
 
 const UploadScreen: React.FC<Props> = ({ navigation }) => {
+    const insets = useSafeAreaInsets();
     const { addSession } = useApp();
     const [videoUri, setVideoUri] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadStage, setUploadStage] = useState('');
+    const animatedProgress = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        Animated.timing(animatedProgress, {
+            toValue: uploadProgress,
+            duration: 300,
+            useNativeDriver: false,
+        }).start();
+    }, [uploadProgress]);
 
     const handlePickVideo = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -54,9 +67,14 @@ const UploadScreen: React.FC<Props> = ({ navigation }) => {
         }
 
         setIsSaving(true);
+        setUploadProgress(0);
+        setUploadStage('Preparing...');
         try {
             // Send straight to the backend Render server and save to Supabase
-            const videoRecord = await uploadVideo(videoUri);
+            const videoRecord = await uploadVideo(videoUri, (progress, stage) => {
+                setUploadProgress(progress);
+                setUploadStage(stage);
+            });
             
             // Map the new Record to the App's SparringSession type
             const newSession: SparringSession = {
@@ -80,13 +98,14 @@ const UploadScreen: React.FC<Props> = ({ navigation }) => {
             Alert.alert('Upload Failed', error.message || 'An error occurred during upload.');
         } finally {
             setIsSaving(false);
+            setUploadProgress(0);
+            setUploadStage('');
         }
     };
 
     return (
-        <View style={styles.root}>
+        <View style={[styles.root, { paddingTop: insets.top }]}>
             <StatusBar barStyle="light-content" />
-            <SafeAreaView style={styles.safe}>
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                         <ChevronLeft size={28} color={Colors.text.primary} />
@@ -94,7 +113,6 @@ const UploadScreen: React.FC<Props> = ({ navigation }) => {
                     <Text style={styles.title}>Upload Session</Text>
                     <View style={styles.backBtn} />
                 </View>
-            </SafeAreaView>
 
             <View style={styles.content}>
                 {!videoUri ? (
@@ -128,6 +146,28 @@ const UploadScreen: React.FC<Props> = ({ navigation }) => {
                             </View>
                         </View>
 
+                        {isSaving && (
+                            <View style={styles.progressContainer}>
+                                <View style={styles.progressBarBg}>
+                                    <Animated.View
+                                        style={[
+                                            styles.progressBarFill,
+                                            {
+                                                width: animatedProgress.interpolate({
+                                                    inputRange: [0, 100],
+                                                    outputRange: ['0%', '100%'],
+                                                }),
+                                            },
+                                        ]}
+                                    />
+                                </View>
+                                <View style={styles.progressInfo}>
+                                    <Text style={styles.progressStage}>{uploadStage}</Text>
+                                    <Text style={styles.progressPercent}>{uploadProgress}%</Text>
+                                </View>
+                            </View>
+                        )}
+
                         <View style={styles.saveContainer}>
                             <Button
                                 label={isSaving ? "Analyzing..." : "Analyze with AI"}
@@ -140,13 +180,13 @@ const UploadScreen: React.FC<Props> = ({ navigation }) => {
                     </View>
                 )}
             </View>
+
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     root: { flex: 1, backgroundColor: Colors.dark.bg },
-    safe: { backgroundColor: Colors.dark.bg },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -255,6 +295,39 @@ const styles = StyleSheet.create({
     saveContainer: {
         padding: 24,
         marginTop: 'auto',
+    },
+
+    // Progress bar
+    progressContainer: {
+        paddingHorizontal: 20,
+        paddingTop: 20,
+    },
+    progressBarBg: {
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        overflow: 'hidden',
+    },
+    progressBarFill: {
+        height: '100%',
+        borderRadius: 4,
+        backgroundColor: Colors.primary.default,
+    },
+    progressInfo: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    progressStage: {
+        color: Colors.text.secondary,
+        fontSize: 13,
+        fontWeight: '500',
+    },
+    progressPercent: {
+        color: Colors.text.primary,
+        fontSize: 13,
+        fontWeight: '700',
     },
 });
 
