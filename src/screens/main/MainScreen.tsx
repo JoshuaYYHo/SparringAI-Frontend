@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -7,6 +7,7 @@ import {
     Alert,
     StatusBar,
     TouchableOpacity,
+    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -20,6 +21,7 @@ import UpgradeModal from '../../components/common/UpgradeModal';
 import { Crown } from 'lucide-react-native';
 import { usePullToRefreshMascot, PullToRefreshMascot } from '../../components/common/PullToRefreshMascot';
 import { APP_NAME } from '../../constants';
+import { getAllSessions } from '../../services/supabase/mainFunctions';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Main'>;
 
@@ -27,14 +29,44 @@ const MainScreen: React.FC<Props> = ({ navigation }) => {
     const {
         user,
         sessions,
+        setSessions,
         canUploadToday,
         upgradePromptVisible,
         setUpgradePromptVisible,
         incrementDailyUpload,
     } = useApp();
 
-    // @TODO connect to the supabase to get this user and their sessions
-    // grab the current user session and then load up their sessions
+    const [loading, setLoading] = useState(true);
+
+    // Fetch sessions from Supabase on mount
+    const fetchSessions = useCallback(async () => {
+        try {
+            setLoading(true);
+            const videos = await getAllSessions();
+
+            const mapped: SparringSession[] = videos.map((v) => ({
+                id: String(v.video_id),
+                title: v.title || 'Sparring Session',
+                date: v.created_at || new Date().toISOString(),
+                videoUri: v.video_bucket_url || '',
+                score: 85, // TODO: extract from ai_analysis / json_dump when available
+                analysisText: v.ai_analysis ?? undefined,
+                bulletPoints: v.ai_analysis
+                    ? ['Review AI analysis for detailed feedback.']
+                    : undefined,
+            }));
+
+            setSessions(mapped);
+        } catch (err) {
+            console.warn('Failed to load sessions:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, [setSessions]);
+
+    useEffect(() => {
+        fetchSessions();
+    }, [fetchSessions]);
 
     // Navigation Callbacks
     const handleUploadAttempt = useCallback(() => {
@@ -117,8 +149,14 @@ const MainScreen: React.FC<Props> = ({ navigation }) => {
                 )}
                 ListEmptyComponent={
                     <View style={styles.emptyWrapper}>
-                        <Text style={styles.emptyText}>No sessions yet.</Text>
-                        <Text style={styles.emptySubText}>Upload your first sparring session above!</Text>
+                        {loading ? (
+                            <ActivityIndicator size="large" color={Colors.primary.default} />
+                        ) : (
+                            <>
+                                <Text style={styles.emptyText}>No sessions yet.</Text>
+                                <Text style={styles.emptySubText}>Upload your first sparring session above!</Text>
+                            </>
+                        )}
                     </View>
                 }
             />
