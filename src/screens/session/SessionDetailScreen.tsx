@@ -1,12 +1,13 @@
 // src/screens/session/SessionDetailScreen.tsx
 // Hero video layout with pull-up details and share button
 
-import React, { useRef } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     TouchableOpacity,
+    TouchableWithoutFeedback,
     Animated,
     StatusBar,
     Dimensions,
@@ -20,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { RootStackParamList } from '../../types';
 import { Colors } from '../../theme/colors';
 import ScoreBadge from '../../components/common/ScoreBadge';
@@ -27,6 +29,7 @@ import {
     ChevronLeft,
     ChevronUp,
     Play,
+    Pause,
     Brain,
     CheckCircle,
     BarChart2,
@@ -61,6 +64,38 @@ const SessionDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     const circle = session.userCircle || null;
     const analysisReady = !!session.analysisText;
 
+    // ── Video player ────────────────────────────────────────
+    const hasVideo = !!session.videoUri;
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [playBtnOpacity] = useState(new Animated.Value(1));
+
+    const player = useVideoPlayer(hasVideo ? session.videoUri : null, (p) => {
+        p.loop = true;
+        p.muted = false;
+    });
+
+    const animatePlayBtn = useCallback((toValue: number) => {
+        Animated.timing(playBtnOpacity, {
+            toValue,
+            duration: 250,
+            useNativeDriver: true,
+        }).start();
+    }, [playBtnOpacity]);
+
+    const handleVideoTap = useCallback(() => {
+        if (!player) return;
+        if (isPlaying) {
+            player.pause();
+            setIsPlaying(false);
+            animatePlayBtn(1);
+        } else {
+            player.play();
+            setIsPlaying(true);
+            animatePlayBtn(0);
+        }
+    }, [player, isPlaying, animatePlayBtn]);
+
+    // ── Pull-to-refresh / scroll animations ─────────────────
     const { scrollY, spinValue, handleScroll } = usePullToRefreshMascot();
 
     const pullScale = scrollY.interpolate({
@@ -113,31 +148,56 @@ const SessionDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
                     {/* ── Hero Video ────────────────────────────────────────── */}
                     <Animated.View style={[styles.heroSection, { transform: [{ scale: pullScale }] }]}>
-                        <View style={styles.videoPlaceholder}>
-                            <View style={styles.playIconWrapper}>
-                                <Play size={48} color={Colors.white} fill={Colors.white} />
-                            </View>
-
-                            {/* SVG circle overlay */}
-                            <Svg
-                                style={StyleSheet.absoluteFillObject}
-                                width={SCREEN_W}
-                                height={VIDEO_H}
-                                pointerEvents="none"
-                            >
-                                {circle && (
-                                    <Circle
-                                        cx={circle.x}
-                                        cy={circle.y}
-                                        r={circle.radius}
-                                        stroke={Colors.primary.default}
-                                        strokeWidth={3}
-                                        fill="rgba(255,0,0,0.12)"
-                                        strokeDasharray="8 4"
+                        <TouchableWithoutFeedback onPress={handleVideoTap}>
+                            <View style={styles.videoPlaceholder}>
+                                {hasVideo ? (
+                                    <VideoView
+                                        player={player}
+                                        style={styles.videoPlayer}
+                                        contentFit="cover"
+                                        nativeControls={false}
                                     />
+                                ) : (
+                                    <View style={styles.playIconWrapper}>
+                                        <Play size={48} color={Colors.white} fill={Colors.white} />
+                                    </View>
                                 )}
-                            </Svg>
-                        </View>
+
+                                {/* Play/Pause overlay button */}
+                                <Animated.View
+                                    style={[styles.videoPlayOverlay, { opacity: playBtnOpacity }]}
+                                    pointerEvents="none"
+                                >
+                                    <View style={styles.playIconWrapper}>
+                                        {isPlaying ? (
+                                            <Pause size={48} color={Colors.white} fill={Colors.white} />
+                                        ) : (
+                                            <Play size={48} color={Colors.white} fill={Colors.white} />
+                                        )}
+                                    </View>
+                                </Animated.View>
+
+                                {/* SVG circle overlay */}
+                                <Svg
+                                    style={StyleSheet.absoluteFillObject}
+                                    width={SCREEN_W}
+                                    height={VIDEO_H}
+                                    pointerEvents="none"
+                                >
+                                    {circle && (
+                                        <Circle
+                                            cx={circle.x}
+                                            cy={circle.y}
+                                            r={circle.radius}
+                                            stroke={Colors.primary.default}
+                                            strokeWidth={3}
+                                            fill="rgba(255,0,0,0.12)"
+                                            strokeDasharray="8 4"
+                                        />
+                                    )}
+                                </Svg>
+                            </View>
+                        </TouchableWithoutFeedback>
 
                         {/* Floating navbar over video */}
                         <SafeAreaView style={styles.floatingNav}>
@@ -297,6 +357,15 @@ const styles = StyleSheet.create({
         width: SCREEN_W,
         height: VIDEO_H,
         backgroundColor: '#0D0D0D',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    videoPlayer: {
+        width: SCREEN_W,
+        height: VIDEO_H,
+    },
+    videoPlayOverlay: {
+        ...StyleSheet.absoluteFillObject,
         alignItems: 'center',
         justifyContent: 'center',
     },

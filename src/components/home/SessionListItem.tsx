@@ -1,8 +1,9 @@
 // src/components/home/SessionListItem.tsx
-// YouTube-style session card with video thumbnail skeleton
+// YouTube-style session card with static video thumbnail from Supabase bucket
 
 import React from 'react';
-import { TouchableOpacity, View, Text, StyleSheet, Image } from 'react-native';
+import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { SparringSession } from '../../types';
 import { Colors } from '../../theme/colors';
 import ScoreBadge from '../common/ScoreBadge';
@@ -16,17 +17,26 @@ interface Props {
 const SessionListItem: React.FC<Props> = ({ session, onPress }) => {
     const date = new Date(session.date);
     const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    const hasThumbnail = !!session.thumbnailUri;
+
+    const hasVideo = !!session.videoUri;
+
+    // Create a paused player just to render the first frame as a thumbnail
+    const player = useVideoPlayer(hasVideo ? session.videoUri : null, (p) => {
+        p.loop = false;
+        p.muted = true;
+        // Stay paused — we only want the first frame as a thumbnail
+    });
 
     return (
         <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.75}>
-            {/* Video Thumbnail (YouTube-style) */}
+            {/* Video Thumbnail Area */}
             <View style={styles.thumbnailWrapper}>
-                {hasThumbnail ? (
-                    <Image
-                        source={{ uri: session.thumbnailUri }}
-                        style={styles.thumbnailImage}
-                        resizeMode="cover"
+                {hasVideo ? (
+                    <VideoView
+                        player={player}
+                        style={styles.videoThumbnail}
+                        contentFit="cover"
+                        nativeControls={false}
                     />
                 ) : (
                     /* Skeleton placeholder — dark surface with subtle lines */
@@ -40,7 +50,7 @@ const SessionListItem: React.FC<Props> = ({ session, onPress }) => {
                 {/* Bottom shadow bar for contrast */}
                 <View style={styles.thumbnailBottomShadow} />
 
-                {/* Centered play button */}
+                {/* Centered play button (decorative — whole card navigates) */}
                 <View style={styles.playButtonOuter}>
                     <View style={styles.playButton}>
                         <Play size={16} color={Colors.white} fill={Colors.white} />
@@ -82,7 +92,7 @@ const styles = StyleSheet.create({
         backgroundColor: Colors.dark.surface,
         position: 'relative',
     },
-    thumbnailImage: {
+    videoThumbnail: {
         width: '100%',
         height: '100%',
     },
