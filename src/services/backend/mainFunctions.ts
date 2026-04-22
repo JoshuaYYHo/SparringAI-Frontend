@@ -8,7 +8,8 @@ export type UploadProgressCallback = (progress: number, stage: string) => void;
 
 export async function uploadVideo(
     videoUri: string,
-    onProgress?: UploadProgressCallback
+    onProgress?: UploadProgressCallback,
+    title?: string
 ) {
     try {
         // 1. Ensure the user is authenticated
@@ -21,6 +22,7 @@ export async function uploadVideo(
         const userId = session.user.id;
         const filename = videoUri.split('/').pop() || `video_${Date.now()}.mp4`;
         const ext = filename.split('.').pop() || 'mp4';
+        const finalTitle = title && title.trim() !== '' ? title.trim() : filename;
 
         // Use standard RN fetch File object syntax
         const fileObj = {
@@ -120,7 +122,7 @@ export async function uploadVideo(
             },
             body: JSON.stringify({
                 user_id: userId,
-                title: filename,
+                title: finalTitle,
                 json_dump: raw_analysis,
                 video_bucket_url: publicUrl,
                 ai_analysis: ai_commentary

@@ -9,6 +9,7 @@ import {
     Dimensions,
     Alert,
     Animated,
+    TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -30,6 +31,7 @@ const UploadScreen: React.FC<Props> = ({ navigation }) => {
     const insets = useSafeAreaInsets();
     const { addSession } = useApp();
     const [videoUri, setVideoUri] = useState<string | null>(null);
+    const [title, setTitle] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [uploadStage, setUploadStage] = useState('');
@@ -81,7 +83,7 @@ const UploadScreen: React.FC<Props> = ({ navigation }) => {
             const videoRecord = await uploadVideo(videoUri, (progress, stage) => {
                 setUploadProgress(progress);
                 setUploadStage(stage);
-            });
+            }, title);
             
             // Map the new Record to the App's SparringSession type
             const newSession: SparringSession = {
@@ -137,6 +139,18 @@ const UploadScreen: React.FC<Props> = ({ navigation }) => {
                     </View>
                 ) : (
                     <View style={styles.videoContainer}>
+                        <View style={styles.titleInputContainer}>
+                            <Text style={styles.inputLabel}>Video Title</Text>
+                            <TextInput
+                                style={styles.titleInput}
+                                placeholder="Enter a title for this session..."
+                                placeholderTextColor={Colors.text.muted}
+                                value={title}
+                                onChangeText={setTitle}
+                                editable={!isSaving}
+                            />
+                        </View>
+
                         <Text style={styles.stepTitle}>Ready for Analysis</Text>
                         <Text style={styles.stepSub}>Your video is selected. It will be sent to the Sparring AI engine for detailed processing.</Text>
 
@@ -243,10 +257,29 @@ const styles = StyleSheet.create({
         minWidth: 200,
     },
 
-    // Video container
     videoContainer: {
         flex: 1,
         paddingTop: 24,
+    },
+    titleInputContainer: {
+        paddingHorizontal: 20,
+        marginBottom: 24,
+    },
+    inputLabel: {
+        color: Colors.text.secondary,
+        fontSize: 14,
+        fontWeight: '600',
+        marginBottom: 8,
+    },
+    titleInput: {
+        backgroundColor: Colors.dark.card,
+        borderWidth: 1,
+        borderColor: Colors.dark.border,
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        color: Colors.text.primary,
+        fontSize: 16,
     },
     stepTitle: {
         color: Colors.text.primary,
