@@ -9,7 +9,8 @@ export type UploadProgressCallback = (progress: number, stage: string) => void;
 export async function uploadVideo(
     videoUri: string,
     onProgress?: UploadProgressCallback,
-    title?: string
+    title?: string,
+    targetBox?: number[]
 ) {
     try {
         // 1. Ensure the user is authenticated
@@ -66,7 +67,11 @@ export async function uploadVideo(
             xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
             xhr.addEventListener('timeout', () => reject(new Error('Upload timed out')));
 
-            xhr.open('POST', `${BACKEND_URL}/video_upload?confidence_threshold=0.7`);
+            let url = `${BACKEND_URL}/video_upload?confidence_threshold=0.7`;
+            if (targetBox && targetBox.length === 4) {
+                url += `&target_box=${targetBox.join(',')}`;
+            }
+            xhr.open('POST', url);
             xhr.setRequestHeader('x-api-key', SPARRING_API_KEY || '');
             xhr.setRequestHeader('Accept', 'application/json');
             // Timeout: 10 minutes for large videos + AI processing
