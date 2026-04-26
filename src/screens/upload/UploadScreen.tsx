@@ -31,10 +31,10 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Upload'>;
 const { width: SCREEN_W } = Dimensions.get('window');
 const VIDEO_H = (SCREEN_W * 9) / 16; // 16:9 aspect ratio
 
-const UploadScreen: React.FC<Props> = ({ navigation }) => {
+const UploadScreen: React.FC<Props> = ({ navigation, route }) => {
     const insets = useSafeAreaInsets();
     const { addSession } = useApp();
-    const [videoUri, setVideoUri] = useState<string | null>(null);
+    const videoUri = route.params.videoUri;
     const [title, setTitle] = useState('');
     const [circleStart, setCircleStart] = useState<{x: number, y: number} | null>(null);
     const [circleCurrent, setCircleCurrent] = useState<{x: number, y: number} | null>(null);
@@ -150,16 +150,11 @@ const UploadScreen: React.FC<Props> = ({ navigation }) => {
         });
 
         if (!result.canceled && result.assets && result.assets.length > 0) {
-            setVideoUri(result.assets[0].uri);
+            navigation.replace('Upload', { videoUri: result.assets[0].uri });
         }
     };
 
     const handleUploadVideo = async () => {
-        if (!videoUri) {
-            Alert.alert('No Video', 'Please select a video from your camera roll first.');
-            return;
-        }
-
         let targetBox: number[] | undefined;
         if (circleStart && circleCurrent) {
             const x1 = circleStart.x;
@@ -267,144 +262,129 @@ const UploadScreen: React.FC<Props> = ({ navigation }) => {
                 </View>
 
             <View style={styles.content}>
-                {!videoUri ? (
-                    <View style={styles.emptyState}>
-                        <View style={styles.iconCircle}>
-                            <ImageIcon size={42} color={Colors.primary.default} />
-                        </View>
-                        <Text style={styles.emptyTitle}>Select a Video</Text>
-                        <Text style={styles.emptySub}>Pick a sparring video from your camera roll to get an AI analysis.</Text>
-                        <Button
-                            label="Choose Video"
-                            onPress={handlePickVideo}
-                            style={styles.pickBtn}
+                <View style={styles.videoContainer}>
+                    <View style={styles.titleInputContainer}>
+                        <Text style={styles.inputLabel}>Video Title</Text>
+                        <TextInput
+                            style={styles.titleInput}
+                            placeholder="Enter a title for this session..."
+                            placeholderTextColor={Colors.text.muted}
+                            value={title}
+                            onChangeText={setTitle}
+                            editable={!isSaving}
                         />
                     </View>
-                ) : (
-                    <View style={styles.videoContainer}>
-                        <View style={styles.titleInputContainer}>
-                            <Text style={styles.inputLabel}>Video Title</Text>
-                            <TextInput
-                                style={styles.titleInput}
-                                placeholder="Enter a title for this session..."
-                                placeholderTextColor={Colors.text.muted}
-                                value={title}
-                                onChangeText={setTitle}
-                                editable={!isSaving}
+
+                    <Text style={styles.stepTitle}>Identify Yourself</Text>
+                    <Text style={styles.stepSub}>Pause and scrub to the best frame, then draw a circle around yourself.</Text>
+
+                    <View style={styles.videoWrapper}>
+                        <View style={{ width: SCREEN_W, height: VIDEO_H }}>
+                            <VideoView
+                                player={player}
+                                style={StyleSheet.absoluteFillObject}
+                                contentFit="cover"
+                                nativeControls={false}
                             />
+                            <View 
+                                style={StyleSheet.absoluteFillObject}
+                                {...panResponder.panHandlers}
+                            >
+                                {renderCircle()}
+                            </View>
                         </View>
 
-                        <Text style={styles.stepTitle}>Identify Yourself</Text>
-                        <Text style={styles.stepSub}>Pause and scrub to the best frame, then draw a circle around yourself.</Text>
-
-                        <View style={styles.videoWrapper}>
-                            <View style={{ width: SCREEN_W, height: VIDEO_H }}>
-                                <VideoView
-                                    player={player}
-                                    style={StyleSheet.absoluteFillObject}
-                                    contentFit="cover"
-                                    nativeControls={false}
-                                />
-                                <View 
-                                    style={StyleSheet.absoluteFillObject}
-                                    {...panResponder.panHandlers}
-                                >
-                                    {renderCircle()}
-                                </View>
-                            </View>
-
-                            {/* Scrub Bar */}
-                            <View style={styles.scrubContainer}>
-                                <TouchableOpacity
-                                    onPress={handlePlayPause}
-                                    style={styles.playPauseBtn}
-                                    activeOpacity={0.7}
-                                >
-                                    {isPlaying ? (
-                                        <Pause size={18} color={Colors.text.primary} />
-                                    ) : (
-                                        <Play size={18} color={Colors.text.primary} />
-                                    )}
-                                </TouchableOpacity>
-
-                                <View
-                                    style={styles.scrubTrackOuter}
-                                    onLayout={(e: LayoutChangeEvent) => setScrubBarWidth(e.nativeEvent.layout.width)}
-                                    {...scrubPanResponder.current.panHandlers}
-                                >
-                                    <View style={styles.scrubTrack}>
-                                        <View
-                                            style={[
-                                                styles.scrubFill,
-                                                { width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' },
-                                            ]}
-                                        />
-                                        {duration > 0 && (
-                                            <View
-                                                style={[
-                                                    styles.scrubThumb,
-                                                    { left: `${(currentTime / duration) * 100}%` },
-                                                ]}
-                                            />
-                                        )}
-                                    </View>
-                                </View>
-
-                                <Text style={styles.scrubTime}>
-                                    {formatTime(currentTime)} / {formatTime(duration)}
-                                </Text>
-                            </View>
-
-                            <View style={styles.toolbar}>
-                                <TouchableOpacity style={styles.toolBtn} onPress={handlePickVideo} activeOpacity={0.8}>
-                                    <ImageIcon size={16} color={Colors.text.secondary} />
-                                    <Text style={styles.toolLabel}>Change Video</Text>
-                                </TouchableOpacity>
-                                {(circleStart || circleCurrent) && (
-                                    <TouchableOpacity 
-                                        style={styles.toolBtn} 
-                                        onPress={() => { setCircleStart(null); setCircleCurrent(null); }} 
-                                        activeOpacity={0.8}
-                                    >
-                                        <Text style={styles.toolLabel}>Clear Circle</Text>
-                                    </TouchableOpacity>
+                        {/* Scrub Bar */}
+                        <View style={styles.scrubContainer}>
+                            <TouchableOpacity
+                                onPress={handlePlayPause}
+                                style={styles.playPauseBtn}
+                                activeOpacity={0.7}
+                            >
+                                {isPlaying ? (
+                                    <Pause size={18} color={Colors.text.primary} />
+                                ) : (
+                                    <Play size={18} color={Colors.text.primary} />
                                 )}
-                            </View>
-                        </View>
+                            </TouchableOpacity>
 
-                        {isSaving && (
-                            <View style={styles.progressContainer}>
-                                <View style={styles.progressBarBg}>
-                                    <Animated.View
+                            <View
+                                style={styles.scrubTrackOuter}
+                                onLayout={(e: LayoutChangeEvent) => setScrubBarWidth(e.nativeEvent.layout.width)}
+                                {...scrubPanResponder.current.panHandlers}
+                            >
+                                <View style={styles.scrubTrack}>
+                                    <View
                                         style={[
-                                            styles.progressBarFill,
-                                            {
-                                                width: animatedProgress.interpolate({
-                                                    inputRange: [0, 100],
-                                                    outputRange: ['0%', '100%'],
-                                                }),
-                                            },
+                                            styles.scrubFill,
+                                            { width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' },
                                         ]}
                                     />
-                                </View>
-                                <View style={styles.progressInfo}>
-                                    <Text style={styles.progressStage}>{uploadStage}</Text>
-                                    <Text style={styles.progressPercent}>{uploadProgress}%</Text>
+                                    {duration > 0 && (
+                                        <View
+                                            style={[
+                                                styles.scrubThumb,
+                                                { left: `${(currentTime / duration) * 100}%` },
+                                            ]}
+                                        />
+                                    )}
                                 </View>
                             </View>
-                        )}
 
-                        <View style={styles.saveContainer}>
-                            <Button
-                                label={isSaving ? "Analyzing..." : "Analyze with AI"}
-                                onPress={handleUploadVideo}
-                                loading={isSaving}
-                                disabled={isSaving}
-                                fullWidth
-                            />
+                            <Text style={styles.scrubTime}>
+                                {formatTime(currentTime)} / {formatTime(duration)}
+                            </Text>
+                        </View>
+
+                        <View style={styles.toolbar}>
+                            <TouchableOpacity style={styles.toolBtn} onPress={handlePickVideo} activeOpacity={0.8}>
+                                <ImageIcon size={16} color={Colors.text.secondary} />
+                                <Text style={styles.toolLabel}>Change Video</Text>
+                            </TouchableOpacity>
+                            {(circleStart || circleCurrent) && (
+                                <TouchableOpacity 
+                                    style={styles.toolBtn} 
+                                    onPress={() => { setCircleStart(null); setCircleCurrent(null); }} 
+                                    activeOpacity={0.8}
+                                >
+                                    <Text style={styles.toolLabel}>Clear Circle</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
                     </View>
-                )}
+
+                    {isSaving && (
+                        <View style={styles.progressContainer}>
+                            <View style={styles.progressBarBg}>
+                                <Animated.View
+                                    style={[
+                                        styles.progressBarFill,
+                                        {
+                                            width: animatedProgress.interpolate({
+                                                inputRange: [0, 100],
+                                                outputRange: ['0%', '100%'],
+                                            }),
+                                        },
+                                    ]}
+                                />
+                            </View>
+                            <View style={styles.progressInfo}>
+                                <Text style={styles.progressStage}>{uploadStage}</Text>
+                                <Text style={styles.progressPercent}>{uploadProgress}%</Text>
+                            </View>
+                        </View>
+                    )}
+
+                    <View style={styles.saveContainer}>
+                        <Button
+                            label={isSaving ? "Analyzing..." : "Analyze with AI"}
+                            onPress={handleUploadVideo}
+                            loading={isSaving}
+                            disabled={isSaving}
+                            fullWidth
+                        />
+                    </View>
+                </View>
             </View>
 
         </View>
@@ -425,39 +405,6 @@ const styles = StyleSheet.create({
     backBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
     title: { color: Colors.text.primary, fontSize: 18, fontWeight: '700' },
     content: { flex: 1 },
-
-    // Empty state
-    emptyState: {
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 32,
-    },
-    iconCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: 'rgba(255,0,0,0.1)',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 24,
-    },
-    emptyTitle: {
-        color: Colors.text.primary,
-        fontSize: 22,
-        fontWeight: '700',
-        marginBottom: 8,
-    },
-    emptySub: {
-        color: Colors.text.secondary,
-        fontSize: 15,
-        textAlign: 'center',
-        lineHeight: 22,
-        marginBottom: 32,
-    },
-    pickBtn: {
-        minWidth: 200,
-    },
 
     videoContainer: {
         flex: 1,

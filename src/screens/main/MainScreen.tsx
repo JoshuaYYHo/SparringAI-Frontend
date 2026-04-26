@@ -74,7 +74,7 @@ const MainScreen: React.FC<Props> = ({ navigation }) => {
             setUpgradePromptVisible(true);
             return;
         }
-        navigation.navigate('Upload');
+        navigation.navigate('SelectVideo');
     }, [canUploadToday, setUpgradePromptVisible, navigation]);
 
     const handleSessionPress = useCallback((session: SparringSession) => {

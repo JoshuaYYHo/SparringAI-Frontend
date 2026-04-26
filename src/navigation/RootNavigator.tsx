@@ -20,6 +20,7 @@ import SplashScreen from '../screens/onboarding/SplashScreen';
 import LoginScreen from '../screens/onboarding/LoginScreen';
 import MainScreen from '../screens/main/MainScreen';
 import SessionDetailScreen from '../screens/session/SessionDetailScreen';
+import SelectVideoScreen from '../screens/upload/SelectVideoScreen';
 import UploadScreen from '../screens/upload/UploadScreen';
 import SettingsScreen from '../screens/main/SettingsScreen';
 import ProfileScreen from '../screens/main/ProfileScreen';
@@ -62,12 +63,17 @@ const RootNavigator: React.FC = () => (
                 options={{ animation: 'slide_from_right' }}
             />
             <Stack.Screen
-                name="Upload"
-                component={UploadScreen}
+                name="SelectVideo"
+                component={SelectVideoScreen}
                 options={{
                     animation: 'slide_from_bottom',
                     presentation: 'fullScreenModal'
                 }}
+            />
+            <Stack.Screen
+                name="Upload"
+                component={UploadScreen}
+                options={{ animation: 'slide_from_right' }}
             />
             <Stack.Screen
                 name="Settings"

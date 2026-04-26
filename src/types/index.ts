@@ -31,7 +31,8 @@ export type RootStackParamList = {
     Login: undefined;
     Main: undefined;
     SessionDetail: { session: SparringSession };
-    Upload: undefined;
+    SelectVideo: undefined;
+    Upload: { videoUri: string };
     Settings: undefined;
     Profile: undefined;
 };
