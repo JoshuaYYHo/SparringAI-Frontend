@@ -46,16 +46,7 @@ const VIDEO_H = SCREEN_H - INFO_BAR_H;
 
 // Have a Prop here probably for these Mock stats
 
-const MOCK_STATS = [
-    { label: 'Punch volumes and types thrown', you: '142 (Mix)', opp: '98 (Heavy)' },
-    { label: 'Punch accuracy', you: '68%', opp: '45%' },
-    { label: 'Balance and stance stability', you: 'Solid', opp: 'Poor' },
-    { label: 'Distance Management', you: 'Excellent', opp: 'Fair' },
-    { label: 'Foot Positioning', you: 'Active', opp: 'Flat' },
-    { label: 'Torso Positioning', you: 'Upright', opp: 'Leaning' },
-    { label: 'Head Positioning', you: 'Off-center', opp: 'Static' },
-    { label: 'Arm Guard Positioning', you: 'High', opp: 'Dropped' },
-];
+// Stats dynamically generated from jsonDump
 
 const SCROLL_THRESHOLD = 30; // px scrolled before hint fades out
 
@@ -63,6 +54,29 @@ const SessionDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     const { session } = route.params;
     const circle = session.userCircle || null;
     const analysisReady = !!session.analysisText;
+
+    const displayStats = React.useMemo(() => {
+        if (!session.jsonDump || Object.keys(session.jsonDump).length === 0) {
+            return [];
+        }
+        
+        return Object.entries(session.jsonDump).map(([key, val]) => {
+            let youVal = String(val);
+            let oppVal = '-';
+            
+            if (val && typeof val === 'object') {
+                const vObj = val as any;
+                youVal = vObj.you !== undefined ? String(vObj.you) : 
+                         (vObj.fighter1 !== undefined ? String(vObj.fighter1) : '-');
+                oppVal = vObj.opp !== undefined ? String(vObj.opp) : 
+                         (vObj.opponent !== undefined ? String(vObj.opponent) : 
+                         (vObj.fighter2 !== undefined ? String(vObj.fighter2) : '-'));
+            }
+            
+            const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            return { label, you: youVal, opp: oppVal };
+        });
+    }, [session.jsonDump]);
 
     // ── Video player ────────────────────────────────────────
     const hasVideo = !!session.videoUri;
@@ -231,7 +245,6 @@ const SessionDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                                 <Text style={styles.sessionTitle} numberOfLines={1}>{session.title}</Text>
                                 <Text style={styles.sessionDate}>{dateStr}</Text>
                             </View>
-                            <ScoreBadge score={session.score} size="lg" />
                         </View>
 
                         {/* Pull-up arrow hint */}
@@ -271,9 +284,12 @@ const SessionDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                                 {/* Bullet improvements */}
                                 {session.bulletPoints && session.bulletPoints.length > 0 && (
                                     <View style={styles.card}>
-                                        <View style={styles.cardHeader}>
-                                            <CheckCircle size={18} color={Colors.primary.default} />
-                                            <Text style={styles.cardTitle}>Areas to Improve</Text>
+                                        <View style={[styles.cardHeader, { justifyContent: 'space-between' }]}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                <CheckCircle size={18} color={Colors.primary.default} />
+                                                <Text style={styles.cardTitle}>Areas to Improve</Text>
+                                            </View>
+                                            <ScoreBadge score={session.score} size="md" />
                                         </View>
                                         <View style={styles.bulletList}>
                                             {session.bulletPoints.map((point, i) => (
@@ -287,28 +303,30 @@ const SessionDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                                 )}
 
                                 {/* Statistics */}
-                                <View style={styles.card}>
-                                    <View style={styles.cardHeader}>
-                                        <BarChart2 size={18} color={Colors.secondary.default} />
-                                        <Text style={styles.cardTitle}>Statistics</Text>
-                                    </View>
+                                {displayStats.length > 0 && (
+                                    <View style={styles.card}>
+                                        <View style={styles.cardHeader}>
+                                            <BarChart2 size={18} color={Colors.secondary.default} />
+                                            <Text style={styles.cardTitle}>Statistics</Text>
+                                        </View>
 
-                                    <View style={styles.statsHeader}>
-                                        <Text style={[styles.statsHeaderText, { flex: 2 }]}></Text>
-                                        <Text style={styles.statsHeaderText}>You</Text>
-                                        <Text style={styles.statsHeaderText}>Opponent</Text>
-                                    </View>
+                                        <View style={styles.statsHeader}>
+                                            <Text style={[styles.statsHeaderText, { flex: 2 }]}></Text>
+                                            <Text style={styles.statsHeaderText}>You</Text>
+                                            <Text style={styles.statsHeaderText}>Opponent</Text>
+                                        </View>
 
-                                    <View style={styles.statsList}>
-                                        {MOCK_STATS.map((stat, i) => (
-                                            <View key={i} style={styles.statRow}>
-                                                <Text style={styles.statLabel}>{stat.label}</Text>
-                                                <Text style={styles.statValueYou}>{stat.you}</Text>
-                                                <Text style={styles.statValueOpp}>{stat.opp}</Text>
-                                            </View>
-                                        ))}
+                                        <View style={styles.statsList}>
+                                            {displayStats.map((stat, i) => (
+                                                <View key={i} style={styles.statRow}>
+                                                    <Text style={styles.statLabel}>{stat.label}</Text>
+                                                    <Text style={styles.statValueYou}>{stat.you}</Text>
+                                                    <Text style={styles.statValueOpp}>{stat.opp}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
                                     </View>
-                                </View>
+                                )}
                             </>
                         )}
 

@@ -44,17 +44,50 @@ const MainScreen: React.FC<Props> = ({ navigation }) => {
             setLoading(true);
             const videos = await getAllSessions();
 
-            const mapped: SparringSession[] = videos.map((v) => ({
-                id: String(v.video_id),
-                title: v.title || 'Sparring Session',
-                date: v.created_at || new Date().toISOString(),
-                videoUri: v.video_bucket_url || '',
-                score: 85, // TODO: extract from ai_analysis / json_dump when available
-                analysisText: v.ai_analysis ?? undefined,
-                bulletPoints: v.ai_analysis
-                    ? ['Review AI analysis for detailed feedback.']
-                    : undefined,
-            }));
+            const mapped: SparringSession[] = videos.map((v) => {
+                let score = 85;
+                let bulletPoints: string[] | undefined = undefined;
+                const aiAnalysis = v.ai_analysis || '';
+
+                // Extract score
+                const scoreMatch = aiAnalysis.match(/### Score \*\*You\*\*\s*(\d+)/i);
+                if (scoreMatch && scoreMatch[1]) {
+                    score = parseInt(scoreMatch[1], 10);
+                } else {
+                    // Fallback to finding just ### Score or similar
+                    const genericScoreMatch = aiAnalysis.match(/### Score[\s\S]*?(\d+)/i);
+                    if (genericScoreMatch && genericScoreMatch[1]) {
+                        score = parseInt(genericScoreMatch[1], 10);
+                    }
+                }
+
+                // Extract bullet points for Areas for Improvement
+                const areasMatch = aiAnalysis.match(/### Areas for Improvement[\s\S]*?(?=###|$)/i);
+                if (areasMatch) {
+                    const lines = areasMatch[0].split('\n');
+                    const bullets = lines
+                        .filter(line => line.trim().startsWith('-') || line.trim().startsWith('*'))
+                        .map(line => line.replace(/^[-*]\s*/, '').trim());
+                    if (bullets.length > 0) {
+                        bulletPoints = bullets;
+                    }
+                }
+
+                if (!bulletPoints && aiAnalysis) {
+                    bulletPoints = ['Review AI analysis for detailed feedback.'];
+                }
+
+                return {
+                    id: String(v.video_id),
+                    title: v.title || 'Sparring Session',
+                    date: v.created_at || new Date().toISOString(),
+                    videoUri: v.video_bucket_url || '',
+                    score,
+                    analysisText: aiAnalysis || undefined,
+                    bulletPoints,
+                    jsonDump: v.json_dump ?? undefined,
+                };
+            });
 
             setSessions(mapped);
         } catch (err) {

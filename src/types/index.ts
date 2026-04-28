@@ -19,6 +19,7 @@ export interface SparringSession {
     title: string;
     analysisText?: string;
     bulletPoints?: string[];
+    jsonDump?: Record<string, any>;
     userCircle?: {           // position/size of the drawn circle overlay
         x: number;
         y: number;
