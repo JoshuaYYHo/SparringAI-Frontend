@@ -8,6 +8,8 @@ export interface VideoSession {
     json_dump: Record<string, unknown> | null;
     video_bucket_url: string | null;
     ai_analysis: string | null;
+    score: number | null;
+    improvement_tips: Record<string, unknown> | null;
 }
 
 /**

@@ -49,27 +49,46 @@ const MainScreen: React.FC<Props> = ({ navigation }) => {
                 let bulletPoints: string[] | undefined = undefined;
                 const aiAnalysis = v.ai_analysis || '';
 
-                // Extract score
-                const scoreMatch = aiAnalysis.match(/### Score \*\*You\*\*\s*(\d+)/i);
-                if (scoreMatch && scoreMatch[1]) {
-                    score = parseInt(scoreMatch[1], 10);
+                // Use Supabase score column if available, otherwise fall back to regex parsing
+                if (v.score != null) {
+                    score = v.score;
                 } else {
-                    // Fallback to finding just ### Score or similar
-                    const genericScoreMatch = aiAnalysis.match(/### Score[\s\S]*?(\d+)/i);
-                    if (genericScoreMatch && genericScoreMatch[1]) {
-                        score = parseInt(genericScoreMatch[1], 10);
+                    const scoreMatch = aiAnalysis.match(/### Score \*\*You\*\*\s*(\d+)/i);
+                    if (scoreMatch && scoreMatch[1]) {
+                        score = parseInt(scoreMatch[1], 10);
+                    } else {
+                        const genericScoreMatch = aiAnalysis.match(/### Score[\s\S]*?(\d+)/i);
+                        if (genericScoreMatch && genericScoreMatch[1]) {
+                            score = parseInt(genericScoreMatch[1], 10);
+                        }
                     }
                 }
 
+                // Use Supabase improvement_tips column if available
+                const improvementTips = (v.improvement_tips as Record<string, any>) ?? undefined;
+
                 // Extract bullet points for Areas for Improvement
-                const areasMatch = aiAnalysis.match(/### Areas for Improvement[\s\S]*?(?=###|$)/i);
-                if (areasMatch) {
-                    const lines = areasMatch[0].split('\n');
-                    const bullets = lines
-                        .filter(line => line.trim().startsWith('-') || line.trim().startsWith('*'))
-                        .map(line => line.replace(/^[-*]\s*/, '').trim());
-                    if (bullets.length > 0) {
-                        bulletPoints = bullets;
+                if (improvementTips && typeof improvementTips === 'object') {
+                    // Convert improvement_tips JSON values into bullet strings
+                    const tips = Object.values(improvementTips)
+                        .map(val => typeof val === 'string' ? val : JSON.stringify(val))
+                        .filter(Boolean);
+                    if (tips.length > 0) {
+                        bulletPoints = tips;
+                    }
+                }
+
+                // Fallback: parse bullet points from AI analysis text
+                if (!bulletPoints) {
+                    const areasMatch = aiAnalysis.match(/### Areas for Improvement[\s\S]*?(?=###|$)/i);
+                    if (areasMatch) {
+                        const lines = areasMatch[0].split('\n');
+                        const bullets = lines
+                            .filter(line => line.trim().startsWith('-') || line.trim().startsWith('*'))
+                            .map(line => line.replace(/^[-*]\s*/, '').trim());
+                        if (bullets.length > 0) {
+                            bulletPoints = bullets;
+                        }
                     }
                 }
 
@@ -85,6 +104,7 @@ const MainScreen: React.FC<Props> = ({ navigation }) => {
                     score,
                     analysisText: aiAnalysis || undefined,
                     bulletPoints,
+                    improvementTips,
                     jsonDump: v.json_dump ?? undefined,
                 };
             });

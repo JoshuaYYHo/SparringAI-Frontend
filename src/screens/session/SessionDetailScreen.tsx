@@ -31,9 +31,9 @@ import {
     Play,
     Pause,
     Brain,
-    CheckCircle,
     BarChart2,
     Share2,
+    Target,
 } from 'lucide-react-native';
 import { usePullToRefreshMascot, PullToRefreshMascot } from '../../components/common/PullToRefreshMascot';
 
@@ -59,20 +59,20 @@ const SessionDetailScreen: React.FC<Props> = ({ navigation, route }) => {
         if (!session.jsonDump || Object.keys(session.jsonDump).length === 0) {
             return [];
         }
-        
+
         return Object.entries(session.jsonDump).map(([key, val]) => {
             let youVal = String(val);
             let oppVal = '-';
-            
+
             if (val && typeof val === 'object') {
                 const vObj = val as any;
-                youVal = vObj.you !== undefined ? String(vObj.you) : 
-                         (vObj.fighter1 !== undefined ? String(vObj.fighter1) : '-');
-                oppVal = vObj.opp !== undefined ? String(vObj.opp) : 
-                         (vObj.opponent !== undefined ? String(vObj.opponent) : 
-                         (vObj.fighter2 !== undefined ? String(vObj.fighter2) : '-'));
+                youVal = vObj.you !== undefined ? String(vObj.you) :
+                    (vObj.fighter1 !== undefined ? String(vObj.fighter1) : '-');
+                oppVal = vObj.opp !== undefined ? String(vObj.opp) :
+                    (vObj.opponent !== undefined ? String(vObj.opponent) :
+                        (vObj.fighter2 !== undefined ? String(vObj.fighter2) : '-'));
             }
-            
+
             const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
             return { label, you: youVal, opp: oppVal };
         });
@@ -245,6 +245,7 @@ const SessionDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                                 <Text style={styles.sessionTitle} numberOfLines={1}>{session.title}</Text>
                                 <Text style={styles.sessionDate}>{dateStr}</Text>
                             </View>
+                            {analysisReady && <ScoreBadge score={session.score} size="md" />}
                         </View>
 
                         {/* Pull-up arrow hint */}
@@ -281,21 +282,25 @@ const SessionDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                                     <Text style={styles.analysisText}>{session.analysisText}</Text>
                                 </View>
 
-                                {/* Bullet improvements */}
-                                {session.bulletPoints && session.bulletPoints.length > 0 && (
+                                {/* Areas to Improve – powered by improvementTips JSON */}
+                                {session.improvementTips && Object.keys(session.improvementTips).length > 0 && (
                                     <View style={styles.card}>
                                         <View style={[styles.cardHeader, { justifyContent: 'space-between' }]}>
                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                                <CheckCircle size={18} color={Colors.primary.default} />
+                                                <Target size={18} color={Colors.primary.default} />
                                                 <Text style={styles.cardTitle}>Areas to Improve</Text>
                                             </View>
                                             <ScoreBadge score={session.score} size="md" />
                                         </View>
-                                        <View style={styles.bulletList}>
-                                            {session.bulletPoints.map((point, i) => (
-                                                <View key={i} style={styles.bulletRow}>
-                                                    <View style={styles.bulletDot} />
-                                                    <Text style={styles.bulletText}>{point}</Text>
+                                        <View style={styles.tipsList}>
+                                            {Object.entries(session.improvementTips).map(([category, tip], i) => (
+                                                <View key={i} style={styles.tipItem}>
+                                                    <Text style={styles.tipCategory}>
+                                                        {category.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                                    </Text>
+                                                    <Text style={styles.tipText}>
+                                                        {typeof tip === 'string' ? tip : JSON.stringify(tip)}
+                                                    </Text>
                                                 </View>
                                             ))}
                                         </View>
@@ -595,6 +600,31 @@ const styles = StyleSheet.create({
         color: Colors.text.secondary,
         fontSize: 13,
         fontWeight: '500',
+    },
+
+    // Improvement Tips
+    tipsList: {
+        gap: 12,
+    },
+    tipItem: {
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        borderRadius: 12,
+        padding: 14,
+        borderLeftWidth: 3,
+        borderLeftColor: Colors.primary.default,
+    },
+    tipCategory: {
+        color: Colors.text.primary,
+        fontSize: 13,
+        fontWeight: '700',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+        marginBottom: 4,
+    },
+    tipText: {
+        color: Colors.text.secondary,
+        fontSize: 14,
+        lineHeight: 21,
     },
 });
 
