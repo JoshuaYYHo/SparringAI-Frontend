@@ -34,6 +34,7 @@ import {
     BarChart2,
     Share2,
     Target,
+    Award,
 } from 'lucide-react-native';
 import { usePullToRefreshMascot, PullToRefreshMascot } from '../../components/common/PullToRefreshMascot';
 
@@ -49,6 +50,15 @@ const VIDEO_H = SCREEN_H - INFO_BAR_H;
 // Stats dynamically generated from jsonDump
 
 const SCROLL_THRESHOLD = 30; // px scrolled before hint fades out
+
+const getScoreDescription = (score: number): string => {
+    if (score >= 90) return 'Outstanding performance';
+    if (score >= 75) return 'Great session, keep it up';
+    if (score >= 60) return 'Solid work, room to grow';
+    if (score >= 40) return 'Decent effort, focus on basics';
+    if (score >= 20) return 'Keep training, you\'ll improve';
+    return 'Early days — stay consistent';
+};
 
 const SessionDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     const { session } = route.params;
@@ -282,30 +292,6 @@ const SessionDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                                     <Text style={styles.analysisText}>{session.analysisText}</Text>
                                 </View>
 
-                                {/* Areas to Improve – powered by improvementTips JSON */}
-                                {session.improvementTips && Object.keys(session.improvementTips).length > 0 && (
-                                    <View style={styles.card}>
-                                        <View style={[styles.cardHeader, { justifyContent: 'space-between' }]}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                                <Target size={18} color={Colors.primary.default} />
-                                                <Text style={styles.cardTitle}>Areas to Improve</Text>
-                                            </View>
-                                            <ScoreBadge score={session.score} size="md" />
-                                        </View>
-                                        <View style={styles.tipsList}>
-                                            {Object.entries(session.improvementTips).map(([category, tip], i) => (
-                                                <View key={i} style={styles.tipItem}>
-                                                    <Text style={styles.tipCategory}>
-                                                        {category.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                                                    </Text>
-                                                    <Text style={styles.tipText}>
-                                                        {typeof tip === 'string' ? tip : JSON.stringify(tip)}
-                                                    </Text>
-                                                </View>
-                                            ))}
-                                        </View>
-                                    </View>
-                                )}
 
                                 {/* Statistics */}
                                 {displayStats.length > 0 && (
@@ -332,6 +318,86 @@ const SessionDetailScreen: React.FC<Props> = ({ navigation, route }) => {
                                         </View>
                                     </View>
                                 )}
+                                {/* ── Score Card ─────────────────────────── */}
+                                <View style={styles.scoreCard}>
+                                    <View style={styles.scoreCardHeader}>
+                                        <Award size={18} color={Colors.warning} />
+                                        <Text style={styles.cardTitle}>Your Score</Text>
+                                    </View>
+
+                                    <View style={styles.scoreCardBody}>
+                                        <ScoreBadge score={session.score} size="lg" />
+                                        <View style={styles.scoreCardInfo}>
+                                            <Text style={styles.scoreCardValue}>
+                                                {session.score}
+                                                <Text style={styles.scoreCardMax}> / 100</Text>
+                                            </Text>
+                                            <Text style={styles.scoreCardDesc}>
+                                                {getScoreDescription(session.score)}
+                                            </Text>
+                                        </View>
+                                    </View>
+
+                                    <View style={styles.scoreBarTrack}>
+                                        <View
+                                            style={[
+                                                styles.scoreBarFill,
+                                                { width: `${Math.min(100, Math.max(0, session.score))}%` },
+                                            ]}
+                                        />
+                                    </View>
+                                </View>
+
+                                {/* ── Improvement Tips Card ────────────── */}
+                                {(() => {
+                                    // Parse improvementTips: handle string, array, or object
+                                    let tips: Record<string, any> | null = null;
+                                    const raw = session.improvementTips;
+                                    console.log('[SessionDetail] session keys:', Object.keys(session));
+                                    console.log('[SessionDetail] improvementTips raw type:', typeof raw, 'value:', JSON.stringify(raw));
+
+                                    if (raw) {
+                                        if (typeof raw === 'string') {
+                                            try { tips = JSON.parse(raw); } catch { tips = null; }
+                                        } else if (Array.isArray(raw)) {
+                                            tips = raw.reduce((acc: Record<string, any>, item, idx) => {
+                                                acc[`tip_${idx + 1}`] = typeof item === 'string' ? item : JSON.stringify(item);
+                                                return acc;
+                                            }, {});
+                                        } else if (typeof raw === 'object') {
+                                            tips = raw as Record<string, any>;
+                                        }
+                                    }
+
+                                    const hasTips = tips && Object.keys(tips).length > 0;
+
+                                    return (
+                                        <View style={styles.card}>
+                                            <View style={styles.cardHeader}>
+                                                <Target size={18} color={Colors.primary.default} />
+                                                <Text style={styles.cardTitle}>Areas to Improve</Text>
+                                            </View>
+                                            {hasTips ? (
+                                                <View style={styles.tipsList}>
+                                                    {Object.entries(tips!).map(([category, tip], i) => (
+                                                        <View key={i} style={styles.tipItem}>
+                                                            <Text style={styles.tipCategory}>
+                                                                {category.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                                            </Text>
+                                                            <Text style={styles.tipText}>
+                                                                {typeof tip === 'string' ? tip : JSON.stringify(tip)}
+                                                            </Text>
+                                                        </View>
+                                                    ))}
+                                                </View>
+                                            ) : (
+                                                <Text style={styles.analysisText}>
+                                                    No improvement tips available for this session yet.
+                                                </Text>
+                                            )}
+                                        </View>
+                                    );
+                                })()}
                             </>
                         )}
 
@@ -625,6 +691,57 @@ const styles = StyleSheet.create({
         color: Colors.text.secondary,
         fontSize: 14,
         lineHeight: 21,
+    },
+
+    // ── Score Card ─────────────────────────────────────────────
+    scoreCard: {
+        backgroundColor: Colors.dark.card,
+        borderRadius: 20,
+        padding: 20,
+        margin: 16,
+        marginBottom: 0,
+        borderWidth: 1,
+        borderColor: Colors.dark.border,
+        gap: 16,
+    },
+    scoreCardHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    scoreCardBody: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+    },
+    scoreCardInfo: {
+        flex: 1,
+    },
+    scoreCardValue: {
+        color: Colors.text.primary,
+        fontSize: 28,
+        fontWeight: '800',
+    },
+    scoreCardMax: {
+        color: Colors.text.muted,
+        fontSize: 16,
+        fontWeight: '500',
+    },
+    scoreCardDesc: {
+        color: Colors.text.secondary,
+        fontSize: 14,
+        marginTop: 2,
+    },
+    scoreBarTrack: {
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        overflow: 'hidden',
+    },
+    scoreBarFill: {
+        height: '100%',
+        borderRadius: 3,
+        backgroundColor: Colors.warning,
     },
 });
 
